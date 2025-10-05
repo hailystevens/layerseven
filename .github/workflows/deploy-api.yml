@@ -1,0 +1,28 @@
+name: Deploy API
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-api.yml'
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rsync to VM
+        uses: burnett01/rsync-deployments@6.0
+        with:
+          switches: -avzr --delete
+          path: api/
+          remote_path: /home/haily/api/
+          remote_host: ${{ secrets.VM_HOST }}
+          remote_user: ${{ secrets.VM_USER }}
+          remote_key: ${{ secrets.VM_SSH_KEY }}
+      - name: Restart API
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: sudo systemctl restart api
