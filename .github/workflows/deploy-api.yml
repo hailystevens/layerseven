@@ -1,4 +1,5 @@
 name: Deploy API
+
 on:
   push:
     branches: [ main ]
@@ -12,37 +13,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Write SSH key
+        run: |
+          echo "${{ secrets.VM_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Ensure rsync present
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
       - name: Prep remote dir
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: mkdir -p /home/haily/api
+        run: |
+          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            'mkdir -p /home/haily/api'
 
       - name: Rsync to VM
-        uses: burnett01/rsync-deployments@v7.1.0
-        with:
-          switches: -avzr --delete
-          path: api/
-          remote_path: /home/haily/api/
-          remote_host: ${{ secrets.VM_HOST }}
-          remote_user: ${{ secrets.VM_USER }}
-          remote_key: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          rsync -avzr --delete -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
+            api/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/haily/api/
 
-      - name: Restart API
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: sudo systemctl restart api
+      - name: Restart API service
+        run: |
+          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            'sudo systemctl restart api && systemctl is-active api'
 
       - name: Health check
         run: |
           code=$(curl -sS -o /dev/null -w "%{http_code}" https://api.layerseven.tech/health)
           echo "Health HTTP code: $code"
-          if [ "$code" -ne 200 ]; then
-            exit 1
-          fi
-
+          test "$code" = "200"
