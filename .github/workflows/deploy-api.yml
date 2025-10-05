@@ -30,7 +30,7 @@ jobs:
         run: rsync -avzr --delete -e "ssh -i key.pem" api/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/haily/api/
 
       - name: Restart API
-        run: ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'sudo systemctl restart api && systemctl is-active api'
+        run: ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'sudo systemctl restart api && sudo systemctl is-active api'
 
       - name: Health check
         run: |
