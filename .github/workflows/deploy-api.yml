@@ -1,5 +1,4 @@
 name: Deploy API
-
 on:
   push:
     branches: [ main ]
@@ -15,22 +14,25 @@ jobs:
 
       - name: Write SSH key
         run: |
-          mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > key.pem
           chmod 600 key.pem
+          mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
 
       - name: Install rsync
         run: sudo apt-get update && sudo apt-get install -y rsync
 
-      - name: Prepare remote directory
+      - name: Prepare remote dir
         run: ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'mkdir -p /home/haily/api'
 
-      - name: Sync files to VM
+      - name: Rsync to VM
         run: rsync -avzr --delete -e "ssh -i key.pem" api/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/haily/api/
 
+      - name: Install production deps on VM
+        run: ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'cd /home/haily/api && npm ci --omit=dev'
+
       - name: Restart API
-        run: ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'sudo systemctl restart api && sudo systemctl is-active api'
+        run: ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'sudo -n /usr/bin/systemctl restart api && sudo -n /usr/bin/systemctl is-active api'
 
       - name: Health check
         run: |
