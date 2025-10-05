@@ -15,29 +15,25 @@ jobs:
 
       - name: Write SSH key
         run: |
+          mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > key.pem
           chmod 600 key.pem
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Ensure rsync present
+      - name: Install rsync
         run: sudo apt-get update && sudo apt-get install -y rsync
 
-      - name: Prep remote dir
-        run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            'mkdir -p /home/haily/api'
+      - name: Prepare remote directory
+        run: ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'mkdir -p /home/haily/api'
 
-      - name: Rsync to VM
-        run: |
-          rsync -avzr --delete -e "ssh -i key.pem -o StrictHostKeyChecking=no" \
-            api/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/haily/api/
+      - name: Sync files to VM
+        run: rsync -avzr --delete -e "ssh -i key.pem" api/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/haily/api/
 
-      - name: Restart API service
-        run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            'sudo systemctl restart api && systemctl is-active api'
+      - name: Restart API
+        run: ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'sudo systemctl restart api && systemctl is-active api'
 
       - name: Health check
         run: |
           code=$(curl -sS -o /dev/null -w "%{http_code}" https://api.layerseven.tech/health)
-          echo "Health HTTP code: $code"
+          echo "HTTP $code"
           test "$code" = "200"
