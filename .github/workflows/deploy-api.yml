@@ -21,7 +21,7 @@ jobs:
           script: mkdir -p /home/haily/api
 
       - name: Rsync to VM
-        uses: burnett01/rsync-deployments@v6.0
+        uses: burnett01/rsync-deployments@v5.2.0
         with:
           switches: -avzr --delete
           path: api/
