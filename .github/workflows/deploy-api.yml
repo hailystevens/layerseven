@@ -19,22 +19,21 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Prepare remote dir (own by haily)
-        run: |
-          ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            'sudo mkdir -p /home/haily/api && sudo chown -R haily:haily /home/haily/api'
+     - name: Prepare remote dir
+       run: |
+         ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} 'mkdir -p ~/api'
 
-      - name: Rsync to VM (no node_modules/.git)
-        run: |
-          rsync -avzr --delete \
+     - name: Rsync to VM (no node_modules/.git)
+       run: |
+         rsync -avzr --delete \
             --exclude 'node_modules/' --exclude '.git/' --exclude '.DS_Store' \
             -e "ssh -i key.pem" \
             api/ ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/home/haily/api/
 
-      - name: Install deps & restart
-        run: |
-          ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            'cd /home/haily/api && npm ci --omit=dev && sudo systemctl restart api && sudo systemctl is-active api'
+     - name: Install deps & restart
+       run: |
+         ssh -i key.pem ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+         'cd ~/api && npm ci --omit=dev && sudo -n systemctl restart api && sudo -n systemctl is-active api' 
 
       - name: Health check
         run: |
