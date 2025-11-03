@@ -152,94 +152,29 @@
         // Cache pixel ratio for performance
         const pixelRatio = Math.min(window.devicePixelRatio, 2);
         
+        // Mobile detection for responsive particle count
+        const isMobile = window.innerWidth < 768;
+        
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(pixelRatio); // Fix blurriness on high DPI displays
         renderer.setClearColor(0x000000, 1);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
-        // Neural Network Configuration - Spherical Structure
-        const neuronCount = 150; // Total number of neurons distributed on sphere
-        const sphereRadius = 15; // Radius of the neural sphere
-        const neuronRadius = 0.3; // Size of individual neurons
-        const neurons = [];
-        const connections = [];
-        
-        // Create Spherical Neural Network
-        function createNeuralNetwork() {
-            // Use Fibonacci sphere algorithm for even distribution
-            const goldenRatio = (1 + Math.sqrt(5)) / 2;
-            const angleIncrement = Math.PI * 2 * goldenRatio;
-            
-            // Create neurons distributed on sphere surface
-            for (let i = 0; i < neuronCount; i++) {
-                const t = i / neuronCount;
-                const inclination = Math.acos(1 - 2 * t);
-                const azimuth = angleIncrement * i;
-                
-                const x = sphereRadius * Math.sin(inclination) * Math.cos(azimuth);
-                const y = sphereRadius * Math.sin(inclination) * Math.sin(azimuth);
-                const z = sphereRadius * Math.cos(inclination);
-                
-                // Create neuron sphere
-                const geometry = new THREE.SphereGeometry(neuronRadius, 16, 16);
-                const material = new THREE.MeshPhongMaterial({
-                    color: 0x00ff88,
-                    transparent: true,
-                    opacity: 0.9,
-                    emissive: 0x00ff88,
-                    emissiveIntensity: 0.4,
-                    shininess: 100
-                });
-                const neuron = new THREE.Mesh(geometry, material);
-                neuron.position.set(x, y, z);
-                scene.add(neuron);
-                
-                neurons.push(neuron);
-            }
-            
-            // Create connections between nearby neurons
-            for (let i = 0; i < neurons.length; i++) {
-                const neuron = neurons[i];
-                let connectionCount = 0;
-                const maxConnections = 6; // Limit connections per neuron
-                
-                for (let j = i + 1; j < neurons.length && connectionCount < maxConnections; j++) {
-                    const otherNeuron = neurons[j];
-                    const distance = neuron.position.distanceTo(otherNeuron.position);
-                    
-                    // Connect neurons within a certain distance
-                    if (distance < sphereRadius * 0.8) {
-                        const points = [];
-                        points.push(neuron.position);
-                        points.push(otherNeuron.position);
-                        
-                        const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-                        const lineMaterial = new THREE.LineBasicMaterial({
-                            color: 0x00ccff,
-                            transparent: true,
-                            opacity: 0.15
-                        });
-                        const line = new THREE.Line(lineGeometry, lineMaterial);
-                        scene.add(line);
-                        connections.push(line);
-                        connectionCount++;
-                    }
-                }
-            }
-        }
-        
-        createNeuralNetwork();
-        
-        // Add wireframe sphere outline for visual reference
-        const wireframeGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
-        const wireframeMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00ff88,
+        // Add spinning torus (donut) orb - responsive sizing
+        const torusRadius = isMobile ? 8 : 10;
+        const torusTube = isMobile ? 2 : 3;
+        const torusGeometry = new THREE.TorusGeometry(torusRadius, torusTube, 32, 100);
+        const torusMaterial = new THREE.MeshPhongMaterial({
+            color: 0x00ccff,
             wireframe: true,
             transparent: true,
-            opacity: 0.1
+            opacity: 0.6,
+            emissive: 0x00ccff,
+            emissiveIntensity: 0.3,
+            shininess: 100
         });
-        const wireframeSphere = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
-        scene.add(wireframeSphere);
+        const torus = new THREE.Mesh(torusGeometry, torusMaterial);
+        scene.add(torus);
         
         // Add lighting for better 3D appearance
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
@@ -253,9 +188,9 @@
         pointLight2.position.set(-20, -10, 20);
         scene.add(pointLight2);
         
-        // Add ambient particles for effect
+        // Add ambient particles for effect - responsive count based on device
         const particlesGeometry = new THREE.BufferGeometry();
-        const particleCount = 2000;
+        const particleCount = isMobile ? 3000 : 5000; // More particles on desktop for depth, balanced count on mobile for performance
         const posArray = new Float32Array(particleCount * 3);
         
         for (let i = 0; i < particleCount * 3; i++) {
@@ -265,7 +200,7 @@
         particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
         
         const particlesMaterial = new THREE.PointsMaterial({
-            size: 0.05,
+            size: isMobile ? 0.04 : 0.05, // Slightly smaller particles on mobile
             color: 0x00ff88,
             transparent: true,
             opacity: 0.3,
@@ -393,22 +328,14 @@
             requestAnimationFrame(animate);
             time += 0.01;
             
+            // Rotate torus constantly on multiple axes for dynamic effect
+            torus.rotation.x += 0.008;
+            torus.rotation.y += 0.012;
+            torus.rotation.z += 0.005;
+            
             // Rotate particles slowly for depth perception
             particlesMesh.rotation.y += 0.0005;
             particlesMesh.rotation.x += 0.0002;
-            
-            // Pulse neurons with improved animation
-            neurons.forEach((neuron, index) => {
-                const pulse = Math.sin(time + index * 0.1) * 0.15 + 0.85;
-                neuron.scale.set(pulse, pulse, pulse);
-                neuron.material.opacity = 0.7 + pulse * 0.2;
-            });
-            
-            // Pulse connections
-            connections.forEach((connection, index) => {
-                const pulse = Math.sin(time * 2 + index * 0.05) * 0.15 + 0.2;
-                connection.material.opacity = pulse;
-            });
             
             // Animate lights for dynamic effect
             pointLight1.position.x = Math.sin(time * 0.5) * 25;
