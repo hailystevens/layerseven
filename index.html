@@ -152,6 +152,9 @@
         // Cache pixel ratio for performance
         const pixelRatio = Math.min(window.devicePixelRatio, 2);
         
+        // Mobile detection for responsive particle count
+        const isMobile = window.innerWidth < 768;
+        
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(pixelRatio); // Fix blurriness on high DPI displays
         renderer.setClearColor(0x000000, 1);
@@ -197,18 +200,18 @@
                 neurons.push(neuron);
             }
             
-            // Create connections between nearby neurons
+            // Create connections between nearby neurons - more intricate pattern
             for (let i = 0; i < neurons.length; i++) {
                 const neuron = neurons[i];
                 let connectionCount = 0;
-                const maxConnections = 6; // Limit connections per neuron
+                const maxConnections = isMobile ? 5 : 8; // More connections on desktop
                 
                 for (let j = i + 1; j < neurons.length && connectionCount < maxConnections; j++) {
                     const otherNeuron = neurons[j];
                     const distance = neuron.position.distanceTo(otherNeuron.position);
                     
-                    // Connect neurons within a certain distance
-                    if (distance < sphereRadius * 0.8) {
+                    // Connect neurons within a certain distance - larger distance for more connections
+                    if (distance < sphereRadius * 0.9) {
                         const points = [];
                         points.push(neuron.position);
                         points.push(otherNeuron.position);
@@ -241,6 +244,22 @@
         const wireframeSphere = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
         scene.add(wireframeSphere);
         
+        // Add spinning torus (donut) orb - responsive sizing
+        const torusRadius = isMobile ? 8 : 10;
+        const torusTube = isMobile ? 2 : 3;
+        const torusGeometry = new THREE.TorusGeometry(torusRadius, torusTube, 32, 100);
+        const torusMaterial = new THREE.MeshPhongMaterial({
+            color: 0x00ccff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.6,
+            emissive: 0x00ccff,
+            emissiveIntensity: 0.3,
+            shininess: 100
+        });
+        const torus = new THREE.Mesh(torusGeometry, torusMaterial);
+        scene.add(torus);
+        
         // Add lighting for better 3D appearance
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambientLight);
@@ -253,9 +272,9 @@
         pointLight2.position.set(-20, -10, 20);
         scene.add(pointLight2);
         
-        // Add ambient particles for effect
+        // Add ambient particles for effect - more on desktop, less on mobile
         const particlesGeometry = new THREE.BufferGeometry();
-        const particleCount = 2000;
+        const particleCount = isMobile ? 3000 : 5000; // Increased particle count, optimized for mobile
         const posArray = new Float32Array(particleCount * 3);
         
         for (let i = 0; i < particleCount * 3; i++) {
@@ -265,7 +284,7 @@
         particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
         
         const particlesMaterial = new THREE.PointsMaterial({
-            size: 0.05,
+            size: isMobile ? 0.04 : 0.05, // Slightly smaller particles on mobile
             color: 0x00ff88,
             transparent: true,
             opacity: 0.3,
@@ -392,6 +411,11 @@
         function animate() {
             requestAnimationFrame(animate);
             time += 0.01;
+            
+            // Rotate torus constantly on multiple axes for dynamic effect
+            torus.rotation.x += 0.008;
+            torus.rotation.y += 0.012;
+            torus.rotation.z += 0.005;
             
             // Rotate particles slowly for depth perception
             particlesMesh.rotation.y += 0.0005;
