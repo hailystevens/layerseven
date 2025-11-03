@@ -138,13 +138,14 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Fix blurriness on high DPI displays
         renderer.setClearColor(0x000000, 1);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
         // Neural Network Configuration
         const layers = [8, 12, 16, 12, 8]; // Number of neurons per layer
-        const layerSpacing = 8;
-        const neuronRadius = 0.3;
+        const layerSpacing = 10; // Increased spacing for better 3D depth
+        const neuronRadius = 0.4; // Slightly larger neurons for better visibility
         const neurons = [];
         const connections = [];
         
@@ -165,11 +166,14 @@
                     const z = 0;
                     
                     // Create neuron sphere
-                    const geometry = new THREE.SphereGeometry(neuronRadius, 16, 16);
-                    const material = new THREE.MeshBasicMaterial({
+                    const geometry = new THREE.SphereGeometry(neuronRadius, 32, 32); // Higher detail
+                    const material = new THREE.MeshPhongMaterial({
                         color: 0x00ff88,
                         transparent: true,
-                        opacity: 0.8
+                        opacity: 0.9,
+                        emissive: 0x00ff88,
+                        emissiveIntensity: 0.3,
+                        shininess: 100
                     });
                     const neuron = new THREE.Mesh(geometry, material);
                     neuron.position.set(x, y, z);
@@ -204,6 +208,18 @@
         
         createNeuralNetwork();
         
+        // Add lighting for better 3D appearance
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        
+        const pointLight1 = new THREE.PointLight(0x00ff88, 1, 100);
+        pointLight1.position.set(20, 20, 20);
+        scene.add(pointLight1);
+        
+        const pointLight2 = new THREE.PointLight(0x00ccff, 0.8, 100);
+        pointLight2.position.set(-20, -10, 20);
+        scene.add(pointLight2);
+        
         // Add ambient particles for effect
         const particlesGeometry = new THREE.BufferGeometry();
         const particleCount = 2000;
@@ -226,7 +242,7 @@
         const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
         scene.add(particlesMesh);
         
-        camera.position.set(0, 0, 35);
+        camera.position.set(0, 0, 40); // Better starting position for wider view
         
         // Interactive Controls
         let isDragging = false;
@@ -264,6 +280,7 @@
         
         // Touch controls for mobile
         let touches = [];
+        let lastPinchDistance = 0;
         
         renderer.domElement.addEventListener('touchstart', (event) => {
             event.preventDefault();
@@ -271,14 +288,20 @@
             if (touches.length === 1) {
                 isDragging = true;
                 previousMousePosition = { x: touches[0].clientX, y: touches[0].clientY };
+            } else if (touches.length === 2) {
+                // Initialize pinch to zoom
+                const dx = touches[0].clientX - touches[1].clientX;
+                const dy = touches[0].clientY - touches[1].clientY;
+                lastPinchDistance = Math.sqrt(dx * dx + dy * dy);
+                isDragging = false;
             }
-        });
+        }, { passive: false });
         
         renderer.domElement.addEventListener('touchmove', (event) => {
             event.preventDefault();
             touches = Array.from(event.touches);
             
-            if (isDragging && touches.length === 1) {
+            if (touches.length === 1 && isDragging) {
                 const deltaX = touches[0].clientX - previousMousePosition.x;
                 const deltaY = touches[0].clientY - previousMousePosition.y;
                 
@@ -289,21 +312,35 @@
                 cameraRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraRotation.x));
                 
                 previousMousePosition = { x: touches[0].clientX, y: touches[0].clientY };
+            } else if (touches.length === 2) {
+                // Pinch to zoom
+                const dx = touches[0].clientX - touches[1].clientX;
+                const dy = touches[0].clientY - touches[1].clientY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (lastPinchDistance > 0) {
+                    const delta = distance - lastPinchDistance;
+                    camera.position.z -= delta * 0.1;
+                    camera.position.z = Math.max(15, Math.min(80, camera.position.z));
+                }
+                
+                lastPinchDistance = distance;
             }
-        });
+        }, { passive: false });
         
         renderer.domElement.addEventListener('touchend', (event) => {
             event.preventDefault();
             isDragging = false;
             touches = [];
-        });
+            lastPinchDistance = 0;
+        }, { passive: false });
         
         // Zoom with mouse wheel
         renderer.domElement.addEventListener('wheel', (event) => {
             event.preventDefault();
-            camera.position.z += event.deltaY * 0.05;
-            camera.position.z = Math.max(10, Math.min(60, camera.position.z));
-        });
+            camera.position.z += event.deltaY * 0.03; // Smoother zoom
+            camera.position.z = Math.max(15, Math.min(80, camera.position.z)); // Wider zoom range
+        }, { passive: false });
         
         // Animation loop
         let time = 0;
@@ -311,15 +348,19 @@
             requestAnimationFrame(animate);
             time += 0.01;
             
-            // Rotate particles slowly
+            // Rotate particles slowly for depth perception
             particlesMesh.rotation.y += 0.0005;
+            particlesMesh.rotation.x += 0.0002;
             
-            // Pulse neurons
+            // Pulse neurons with improved animation
             neurons.forEach((layer, layerIndex) => {
                 layer.forEach((neuron, neuronIndex) => {
-                    const pulse = Math.sin(time + layerIndex * 0.5 + neuronIndex * 0.1) * 0.1 + 0.9;
+                    const pulse = Math.sin(time + layerIndex * 0.5 + neuronIndex * 0.1) * 0.15 + 0.85;
                     neuron.scale.set(pulse, pulse, pulse);
-                    neuron.material.opacity = 0.6 + pulse * 0.2;
+                    neuron.material.opacity = 0.7 + pulse * 0.2;
+                    // Add subtle rotation to each layer for 3D effect
+                    const layerRotation = Math.sin(time * 0.3 + layerIndex) * 0.05;
+                    neuron.rotation.y = layerRotation;
                 });
             });
             
@@ -328,6 +369,10 @@
                 const pulse = Math.sin(time * 2 + index * 0.05) * 0.15 + 0.2;
                 connection.material.opacity = pulse;
             });
+            
+            // Animate lights for dynamic effect
+            pointLight1.position.x = Math.sin(time * 0.5) * 25;
+            pointLight1.position.z = Math.cos(time * 0.5) * 25;
             
             // Update camera position based on rotation
             const radius = camera.position.z;
@@ -346,6 +391,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         });
     </script>
 </body>
