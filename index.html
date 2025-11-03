@@ -35,6 +35,11 @@
             width: 100%;
             height: 100%;
             z-index: 1;
+            cursor: grab;
+        }
+        
+        #canvas-container:active {
+            cursor: grabbing;
         }
         
         .content {
@@ -136,65 +141,199 @@
         renderer.setClearColor(0x000000, 1);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
-        // Create particles
+        // Neural Network Configuration
+        const layers = [8, 12, 16, 12, 8]; // Number of neurons per layer
+        const layerSpacing = 8;
+        const neuronRadius = 0.3;
+        const neurons = [];
+        const connections = [];
+        
+        // Create Neural Network
+        function createNeuralNetwork() {
+            const totalWidth = (layers.length - 1) * layerSpacing;
+            const startX = -totalWidth / 2;
+            
+            // Create neurons for each layer
+            layers.forEach((neuronCount, layerIndex) => {
+                const layerNeurons = [];
+                const x = startX + layerIndex * layerSpacing;
+                const totalHeight = (neuronCount - 1) * 1.5;
+                const startY = -totalHeight / 2;
+                
+                for (let i = 0; i < neuronCount; i++) {
+                    const y = startY + i * 1.5;
+                    const z = 0;
+                    
+                    // Create neuron sphere
+                    const geometry = new THREE.SphereGeometry(neuronRadius, 16, 16);
+                    const material = new THREE.MeshBasicMaterial({
+                        color: 0x00ff88,
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    const neuron = new THREE.Mesh(geometry, material);
+                    neuron.position.set(x, y, z);
+                    scene.add(neuron);
+                    
+                    layerNeurons.push(neuron);
+                    
+                    // Create connections to previous layer
+                    if (layerIndex > 0) {
+                        const prevLayer = neurons[layerIndex - 1];
+                        prevLayer.forEach((prevNeuron) => {
+                            const points = [];
+                            points.push(prevNeuron.position);
+                            points.push(neuron.position);
+                            
+                            const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+                            const lineMaterial = new THREE.LineBasicMaterial({
+                                color: 0x00ccff,
+                                transparent: true,
+                                opacity: 0.2
+                            });
+                            const line = new THREE.Line(lineGeometry, lineMaterial);
+                            scene.add(line);
+                            connections.push(line);
+                        });
+                    }
+                }
+                
+                neurons.push(layerNeurons);
+            });
+        }
+        
+        createNeuralNetwork();
+        
+        // Add ambient particles for effect
         const particlesGeometry = new THREE.BufferGeometry();
-        const particleCount = 5000;
+        const particleCount = 2000;
         const posArray = new Float32Array(particleCount * 3);
         
         for (let i = 0; i < particleCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 100;
+            posArray[i] = (Math.random() - 0.5) * 80;
         }
         
         particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
         
-        // Material for particles
         const particlesMaterial = new THREE.PointsMaterial({
             size: 0.05,
             color: 0x00ff88,
             transparent: true,
-            opacity: 0.8,
+            opacity: 0.3,
             blending: THREE.AdditiveBlending
         });
         
         const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
         scene.add(particlesMesh);
         
-        // Create geometric shapes
-        const geometry = new THREE.TorusGeometry(10, 3, 16, 100);
-        const material = new THREE.MeshBasicMaterial({
-            color: 0x00ccff,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.3
+        camera.position.set(0, 0, 35);
+        
+        // Interactive Controls
+        let isDragging = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let cameraRotation = { x: 0, y: 0 };
+        
+        // Mouse controls for desktop
+        renderer.domElement.addEventListener('mousedown', (event) => {
+            isDragging = true;
+            previousMousePosition = { x: event.clientX, y: event.clientY };
         });
-        const torus = new THREE.Mesh(geometry, material);
-        scene.add(torus);
         
-        camera.position.z = 30;
+        renderer.domElement.addEventListener('mousemove', (event) => {
+            if (isDragging) {
+                const deltaX = event.clientX - previousMousePosition.x;
+                const deltaY = event.clientY - previousMousePosition.y;
+                
+                cameraRotation.y += deltaX * 0.005;
+                cameraRotation.x += deltaY * 0.005;
+                
+                // Limit vertical rotation
+                cameraRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraRotation.x));
+                
+                previousMousePosition = { x: event.clientX, y: event.clientY };
+            }
+        });
         
-        // Mouse movement
-        let mouseX = 0;
-        let mouseY = 0;
+        renderer.domElement.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
         
-        document.addEventListener('mousemove', (event) => {
-            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        renderer.domElement.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+        
+        // Touch controls for mobile
+        let touches = [];
+        
+        renderer.domElement.addEventListener('touchstart', (event) => {
+            event.preventDefault();
+            touches = Array.from(event.touches);
+            if (touches.length === 1) {
+                isDragging = true;
+                previousMousePosition = { x: touches[0].clientX, y: touches[0].clientY };
+            }
+        });
+        
+        renderer.domElement.addEventListener('touchmove', (event) => {
+            event.preventDefault();
+            touches = Array.from(event.touches);
+            
+            if (isDragging && touches.length === 1) {
+                const deltaX = touches[0].clientX - previousMousePosition.x;
+                const deltaY = touches[0].clientY - previousMousePosition.y;
+                
+                cameraRotation.y += deltaX * 0.005;
+                cameraRotation.x += deltaY * 0.005;
+                
+                // Limit vertical rotation
+                cameraRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, cameraRotation.x));
+                
+                previousMousePosition = { x: touches[0].clientX, y: touches[0].clientY };
+            }
+        });
+        
+        renderer.domElement.addEventListener('touchend', (event) => {
+            event.preventDefault();
+            isDragging = false;
+            touches = [];
+        });
+        
+        // Zoom with mouse wheel
+        renderer.domElement.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            camera.position.z += event.deltaY * 0.05;
+            camera.position.z = Math.max(10, Math.min(60, camera.position.z));
         });
         
         // Animation loop
+        let time = 0;
         function animate() {
             requestAnimationFrame(animate);
+            time += 0.01;
             
-            // Rotate torus
-            torus.rotation.x += 0.005;
-            torus.rotation.y += 0.005;
+            // Rotate particles slowly
+            particlesMesh.rotation.y += 0.0005;
             
-            // Rotate particles
-            particlesMesh.rotation.y += 0.001;
+            // Pulse neurons
+            neurons.forEach((layer, layerIndex) => {
+                layer.forEach((neuron, neuronIndex) => {
+                    const pulse = Math.sin(time + layerIndex * 0.5 + neuronIndex * 0.1) * 0.1 + 0.9;
+                    neuron.scale.set(pulse, pulse, pulse);
+                    neuron.material.opacity = 0.6 + pulse * 0.2;
+                });
+            });
             
-            // Mouse interaction
-            camera.position.x = mouseX * 5;
-            camera.position.y = mouseY * 5;
+            // Pulse connections
+            connections.forEach((connection, index) => {
+                const pulse = Math.sin(time * 2 + index * 0.05) * 0.15 + 0.2;
+                connection.material.opacity = pulse;
+            });
+            
+            // Update camera position based on rotation
+            const radius = camera.position.z;
+            camera.position.x = radius * Math.sin(cameraRotation.y) * Math.cos(cameraRotation.x);
+            camera.position.y = radius * Math.sin(cameraRotation.x);
+            camera.position.z = radius * Math.cos(cameraRotation.y) * Math.cos(cameraRotation.x);
             camera.lookAt(scene.position);
             
             renderer.render(scene, camera);
