@@ -272,9 +272,9 @@
         pointLight2.position.set(-20, -10, 20);
         scene.add(pointLight2);
         
-        // Add ambient particles for effect - more on desktop, less on mobile
+        // Add ambient particles for effect - responsive count based on device
         const particlesGeometry = new THREE.BufferGeometry();
-        const particleCount = isMobile ? 3000 : 5000; // Increased particle count, optimized for mobile
+        const particleCount = isMobile ? 3000 : 5000; // More particles on desktop for depth, balanced count on mobile for performance
         const posArray = new Float32Array(particleCount * 3);
         
         for (let i = 0; i < particleCount * 3; i++) {
