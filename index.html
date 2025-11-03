@@ -137,8 +137,17 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         
+        // Zoom configuration constants
+        const ZOOM_MIN = 15;
+        const ZOOM_MAX = 80;
+        const ZOOM_WHEEL_SENSITIVITY = 0.03;
+        const ZOOM_PINCH_SENSITIVITY = 0.1;
+        
+        // Cache pixel ratio for performance
+        const pixelRatio = Math.min(window.devicePixelRatio, 2);
+        
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Fix blurriness on high DPI displays
+        renderer.setPixelRatio(pixelRatio); // Fix blurriness on high DPI displays
         renderer.setClearColor(0x000000, 1);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
@@ -320,8 +329,8 @@
                 
                 if (lastPinchDistance > 0) {
                     const delta = distance - lastPinchDistance;
-                    camera.position.z -= delta * 0.1;
-                    camera.position.z = Math.max(15, Math.min(80, camera.position.z));
+                    camera.position.z -= delta * ZOOM_PINCH_SENSITIVITY;
+                    camera.position.z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, camera.position.z));
                 }
                 
                 lastPinchDistance = distance;
@@ -338,8 +347,8 @@
         // Zoom with mouse wheel
         renderer.domElement.addEventListener('wheel', (event) => {
             event.preventDefault();
-            camera.position.z += event.deltaY * 0.03; // Smoother zoom
-            camera.position.z = Math.max(15, Math.min(80, camera.position.z)); // Wider zoom range
+            camera.position.z += event.deltaY * ZOOM_WHEEL_SENSITIVITY; // Smoother zoom
+            camera.position.z = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, camera.position.z)); // Wider zoom range
         }, { passive: false });
         
         // Animation loop
@@ -391,7 +400,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setPixelRatio(pixelRatio);
         });
     </script>
 </body>
